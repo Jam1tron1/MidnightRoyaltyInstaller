@@ -17,6 +17,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var status: TextView
     private lateinit var password: EditText
     private lateinit var install: Button
+    private lateinit var host: EditText
+    private lateinit var port: EditText
+    private lateinit var username: EditText
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -25,14 +28,19 @@ class MainActivity : AppCompatActivity() {
         root.addView(title("MIDNIGHT ROYALTY",28f)); root.addView(title("FiveM One-Click Installer",18f))
         val mlo=Button(this).apply{text="🏠  INSTALL MLO"}; val script=Button(this).apply{text="⚙️  INSTALL SCRIPT"}
         root.addView(mlo); root.addView(script)
+        host=EditText(this).apply { hint="SFTP host"; setText("fx-ash-14.apollopanel.com") }
+        port=EditText(this).apply { hint="SFTP port"; setText("2022"); inputType=InputType.TYPE_CLASS_NUMBER }
+        username=EditText(this).apply { hint="SFTP username"; setText("jam1.90d57ae1") }
         password=EditText(this).apply { hint="RocketNode SFTP password"; inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD }
-        root.addView(password)
+        root.addView(host); root.addView(port); root.addView(username); root.addView(password)
+        val test=Button(this).apply{text="🔌 TEST SERVER CONNECTION"}; root.addView(test)
         val select=Button(this).apply{text="📦 SELECT ZIP"}; root.addView(select)
         install=Button(this).apply{text="🚀 ONE-CLICK CHECK + INSTALL"; isEnabled=false}; root.addView(install)
         status=TextView(this).apply{text="Mode: MLO\nDestination: /home/container/resources/[MLOS]/"; setPadding(0,30,0,0)}; root.addView(status)
         setContentView(root)
         mlo.setOnClickListener { mode=Mode.MLO; status.text="Mode: MLO\nDestination: /home/container/resources/[MLOS]/" }
         script.setOnClickListener { mode=Mode.SCRIPT; status.text="Mode: SCRIPT\nDestination: /home/container/resources/[standalone]/" }
+        test.setOnClickListener { testConnection() }
         select.setOnClickListener { startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply { addCategory(Intent.CATEGORY_OPENABLE); type="application/zip" },42) }
         install.setOnClickListener { selected?.let { analyze(it) } }
     }
@@ -42,6 +50,30 @@ class MainActivity : AppCompatActivity() {
         if(requestCode==42&&resultCode==Activity.RESULT_OK){
             selected=data?.data; install.isEnabled=selected!=null; status.text="Selected package. Ready to check."
         }
+    }
+
+    private fun testConnection() {
+        if (password.text.isNullOrBlank()) { status.text="❌ Enter your SFTP password first."; return }
+        status.text="🔌 Testing server connection…"
+        Thread {
+            var session: com.jcraft.jsch.Session? = null
+            var channel: com.jcraft.jsch.ChannelSftp? = null
+            try {
+                session = com.jcraft.jsch.JSch().getSession(username.text.toString().trim(), host.text.toString().trim(), port.text.toString().toInt())
+                session.setPassword(password.text.toString())
+                session.setConfig("StrictHostKeyChecking", "no")
+                session.connect(15000)
+                channel = session.openChannel("sftp") as com.jcraft.jsch.ChannelSftp
+                channel.connect(15000)
+                val remote = channel.pwd()
+                runOnUiThread { status.text="✅ SERVER CONNECTION PASSED\nConnected by SFTP.\nRemote folder: $remote" }
+            } catch (e: Exception) {
+                runOnUiThread { status.text="❌ CONNECTION FAILED\n${e.message ?: e.javaClass.simpleName}" }
+            } finally {
+                try { channel?.disconnect() } catch (_:Exception) {}
+                try { session?.disconnect() } catch (_:Exception) {}
+            }
+        }.start()
     }
 
     private fun analyze(uri:Uri) {
