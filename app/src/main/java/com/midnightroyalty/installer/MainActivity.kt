@@ -62,6 +62,7 @@ class MainActivity : AppCompatActivity() {
                 session = com.jcraft.jsch.JSch().getSession(username.text.toString().trim(), host.text.toString().trim(), port.text.toString().toInt())
                 session.setPassword(password.text.toString())
                 session.setConfig("StrictHostKeyChecking", "no")
+                session.setConfig("server_host_key", "ssh-ed25519,ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,rsa-sha2-512,rsa-sha2-256")
                 session.connect(15000)
                 channel = session.openChannel("sftp") as com.jcraft.jsch.ChannelSftp
                 channel.connect(15000)
